@@ -1,5 +1,5 @@
 """
-Iterable ZIP archive genrator.
+Iterable ZIP archive generator.
 
 Derived directly from zipfile.py
 """
@@ -172,13 +172,37 @@ class ZipInfo (object):
                  len(self.filename), len(extra))
         return header + self.filename + extra
 
+# Subclass this to provide an iterator to ZipStream
+class ZipPath:
+    def basename(self):
+        """
+        Returns the basename of this ZipPath instance. Ensures it is ASCII encoded!
+        """
+        raise NotImplemented
 
+    def isdir(self):
+        """
+        Returns true if this ZipPath instance represents a directory
+        """
+        raise NotImplemented
+
+    def listdir(self):
+        """
+        If self.isdir(), this should be an iterator of ZipPath instances inside
+        """
+        raise NotImplemented
+
+    def file(self):
+        """
+        If not self.isdir(), this should return a filename to open
+        """
+        raise NotImplemented
 
 class ZipStream:
     """
     """
 
-    def __init__(self, path, arc_path='', compression=ZIP_DEFLATED):
+    def __init__(self, zip_paths, arc_path='', compression=ZIP_DEFLATED):
         if compression == ZIP_STORED:
             pass
         elif compression == ZIP_DEFLATED:
@@ -190,13 +214,14 @@ class ZipStream:
 
         self.filelist = []              # List of ZipInfo instances for archive
         self.compression = compression  # Method of compression
-        self.path = path                # source path
+        self.zip_paths = zip_paths                # source path
         self.arc_path = arc_path        # top level path in archive
         self.data_ptr = 0               # Keep track of location inside archive
 
     def __iter__(self):
-        for data in self.zip_path(self.path, self.arc_path):
-            yield data
+        for zip_path in self.zip_paths:
+            for data in self.traverse(zip_path, self.arc_path):
+                yield data
 
         yield self.archive_footer()
 
@@ -211,7 +236,7 @@ class ZipStream:
         self.data_ptr += len(data)
         return data
 
-    def zip_path(self, path, archive_dir_name):
+    def traverse(self, zip_path, archive_dir_name):
         """Recursively generate data to add directory tree or file pointed to by
         path to the archive. Results in archive containing
 
@@ -226,16 +251,15 @@ class ZipStream:
         path -- path to file or directory
         archive_dir_name -- name of containing directory in archive
         """
-        if os.path.isdir(path):
-            dir_name = os.path.basename(path)
-            for name in os.listdir(path):
-                r_path = os.path.join(path, name)
+        if zip_path.isdir():
+            dir_name = zip_path.basename()
+            for r_zip_path in zip_path.listdir():
                 r_archive_dir_name = os.path.join(archive_dir_name, dir_name)
-                for data in self.zip_path(r_path, r_archive_dir_name):
+                for data in self.traverse(r_zip_path, r_archive_dir_name):
                     yield data
         else:
-            archive_path = os.path.join(archive_dir_name, os.path.basename(path))
-            for data in self.zip_file(path, archive_path):
+            archive_path = os.path.join(archive_dir_name, zip_path.basename())
+            for data in self.zip_file(zip_path.file(), archive_path):
                 yield data
 
 
