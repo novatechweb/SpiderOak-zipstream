@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='zipstream',
-    version='2.0.0',
+    version='2.1.0',
     description='SpiderOak ZipStream Module (Intersect)',
     author='SpiderOak Team, Intersect',
     author_email='support@intersect.org.au',

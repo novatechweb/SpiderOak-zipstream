@@ -194,7 +194,7 @@ class ZipPath:
 
     def file(self):
         """
-        If not self.isdir(), this should return a filename to open
+        If not self.isdir(), this should return a filename to open _or_ a file IO object to read
         """
         raise NotImplemented
 
@@ -263,11 +263,11 @@ class ZipStream:
                 yield data
 
 
-    def zip_file(self, filename, arcname=None, compress_type=None):
+    def zip_file(self, fileobj, arcname=None, compress_type=None):
         """Generates data to add file at 'filename' to an archive.
 
-        filename -- path to file to add to arcive
-        arcname -- path of file inside the archive
+        fileobj -- path to file to add to archive _OR_ file as IO object
+        arcname -- path of file inside the archive (compulsory if given only a file IO object)
         compress_type -- unused in ZipStream, just use self.compression
 
 
@@ -280,26 +280,36 @@ class ZipStream:
         as described in section V. of the PKZIP Application Note:
         http://www.pkware.com/business_and_developers/developer/appnote/
         """
-        st = os.stat(filename)
-        mtime = time.localtime(st.st_mtime)
+
+        if isinstance(fileobj, str) or isinstance(fileobj, unicode):
+            st = os.stat(fileobj)
+            external_attr = (st[0] & 0xFFFF) << 16L      # Unix attributes
+            file_size = st.st_size
+            mtime = time.localtime(st.st_mtime)
+            fp = open(fileobj, "rb")
+        else:
+            external_attr = (0644 & 0xFFFF) << 16L
+            file_size = fileobj['size']
+            mtime = time.localtime()
+            fp = fileobj['stream']
+
         date_time = mtime[0:6]
         # Create ZipInfo instance to store file information
         if arcname is None:
-            arcname = filename
+            if not isinstance(fileobj, str): raise "Provide file name when using a file IO as input"
+            arcname = fileobj
         arcname = os.path.normpath(os.path.splitdrive(arcname)[1])
         while arcname[0] in (os.sep, os.altsep):
             arcname = arcname[1:]
         zinfo = ZipInfo(arcname, date_time)
-        zinfo.external_attr = (st[0] & 0xFFFF) << 16L      # Unix attributes
+        zinfo.external_attr = external_attr
         if compress_type is None:
             zinfo.compress_type = self.compression
         else:
             zinfo.compress_type = compress_type
 
-        zinfo.file_size = st.st_size
+        zinfo.file_size = file_size
         zinfo.header_offset = self.data_ptr    # Start of header bytes
-
-        fp = open(filename, "rb")
         zinfo.CRC = CRC = 0
         zinfo.compress_size = compress_size = 0
         zinfo.file_size = file_size = 0
