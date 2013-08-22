@@ -284,12 +284,10 @@ class ZipStream:
         if isinstance(fileobj, str) or isinstance(fileobj, unicode):
             st = os.stat(fileobj)
             external_attr = (st[0] & 0xFFFF) << 16L      # Unix attributes
-            file_size = st.st_size
             mtime = time.localtime(st.st_mtime)
             fp = open(fileobj, "rb")
         else:
             external_attr = (0644 & 0xFFFF) << 16L
-            file_size = fileobj['size']
             mtime = time.localtime()
             fp = fileobj['stream']
 
@@ -308,7 +306,6 @@ class ZipStream:
         else:
             zinfo.compress_type = compress_type
 
-        zinfo.file_size = file_size
         zinfo.header_offset = self.data_ptr    # Start of header bytes
         zinfo.CRC = CRC = 0
         zinfo.compress_size = compress_size = 0
