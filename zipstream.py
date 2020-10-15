@@ -3,6 +3,8 @@ Iterable ZIP archive generator.
 
 Derived directly from zipfile.py
 """
+from builtins import chr
+from builtins import object
 import struct, os, time, sys
 import binascii
 
@@ -173,7 +175,7 @@ class ZipInfo (object):
         return header + self.filename + extra
 
 # Subclass this to provide an iterator to ZipStream
-class ZipPath:
+class ZipPath(object):
     def basename(self):
         """
         Returns the basename of this ZipPath instance. Ensures it is ASCII encoded!
@@ -198,7 +200,7 @@ class ZipPath:
         """
         raise NotImplemented
 
-class ZipStream:
+class ZipStream(object):
     """
     """
 
@@ -207,10 +209,9 @@ class ZipStream:
             pass
         elif compression == ZIP_DEFLATED:
             if not zlib:
-                raise RuntimeError,\
-                      "Compression requires the (missing) zlib module"
+                raise RuntimeError("Compression requires the (missing) zlib module")
         else:
-            raise RuntimeError, "That compression method is not supported"
+            raise RuntimeError("That compression method is not supported")
 
         self.filelist = []              # List of ZipInfo instances for archive
         self.compression = compression  # Method of compression
@@ -281,20 +282,21 @@ class ZipStream:
         http://www.pkware.com/business_and_developers/developer/appnote/
         """
 
-        if isinstance(fileobj, str) or isinstance(fileobj, unicode):
+        if isinstance(fileobj, str) or isinstance(fileobj, str):
             st = os.stat(fileobj)
-            external_attr = (st[0] & 0xFFFF) << 16L      # Unix attributes
+            external_attr = (st[0] & 0xFFFF) << 16      # Unix attributes
             mtime = time.localtime(st.st_mtime)
             fp = open(fileobj, "rb")
         else:
-            external_attr = (0644 & 0xFFFF) << 16L
+            external_attr = (0o644 & 0xFFFF) << 16
             mtime = time.localtime()
             fp = fileobj['stream']
 
         date_time = mtime[0:6]
         # Create ZipInfo instance to store file information
         if arcname is None:
-            if not isinstance(fileobj, str): raise "Provide file name when using a file IO as input"
+            if not isinstance(fileobj, str):
+                raise RuntimeError("Provide file name when using a file IO as input")
             arcname = fileobj
         arcname = os.path.normpath(os.path.splitdrive(arcname)[1])
         while arcname[0] in (os.sep, os.altsep):
