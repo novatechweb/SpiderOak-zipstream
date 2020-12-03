@@ -25,16 +25,16 @@ ZIP_DEFLATED = 8
 
 # Here are some struct module formats for reading headers
 structEndArchive = "<4s4H2lH"     # 9 items, end of archive, 22 bytes
-stringEndArchive = "PK\005\006"   # magic number for end of archive record
-structCentralDir = "<4s4B4HlLL5HLl"# 19 items, central directory, 46 bytes
-stringCentralDir = "PK\001\002"   # magic number for central directory
-structFileHeader = "<4s2B4HlLL2H"  # 12 items, file header record, 30 bytes
-stringFileHeader = "PK\003\004"   # magic number for file header
+stringEndArchive = b"PK\005\006"   # magic number for end of archive record
+structCentralDir = "<4s4B4HLLL5HLl"# 19 items, central directory, 46 bytes
+stringCentralDir = b"PK\001\002"   # magic number for central directory
+structFileHeader = "<4s2B4HLLL2H"  # 12 items, file header record, 30 bytes
+stringFileHeader = b"PK\003\004"   # magic number for file header
 structEndArchive64Locator = "<4slql" # 4 items, locate Zip64 header, 20 bytes
-stringEndArchive64Locator = "PK\x06\x07" # magic token for locator header
+stringEndArchive64Locator = b"PK\x06\x07" # magic token for locator header
 structEndArchive64 = "<4sqhhllqqqq" # 10 items, end of archive (Zip64), 56 bytes
-stringEndArchive64 = "PK\x06\x06" # magic token for Zip64 header
-stringDataDescriptor = "PK\x07\x08" # magic number for data descriptor
+stringEndArchive64 = b"PK\x06\x06" # magic token for Zip64 header
+stringDataDescriptor = b"PK\x07\x08" # magic number for data descriptor
 
 # indexes of entries in the central directory structure
 _CD_SIGNATURE = 0
@@ -98,10 +98,11 @@ class ZipInfo (object):
 
     def __init__(self, filename="NoName", date_time=(1980,1,1,0,0,0)):
         self.orig_filename = filename   # Original file name in archive
+        filename = filename.encode('utf-8')
 
         # Terminate the file name at the first null byte.  Null bytes in file
         # names are used as tricks by viruses in archives.
-        null_byte = filename.find(chr(0))
+        null_byte = filename.find(b"\0")
         if null_byte >= 0:
             filename = filename[0:null_byte]
         # This is used to ensure paths in generated ZIP files always use
@@ -114,8 +115,8 @@ class ZipInfo (object):
         self.date_time = date_time      # year, month, day, hour, min, sec
         # Standard values:
         self.compress_type = ZIP_STORED # Type of compression for the file
-        self.comment = ""               # Comment for each file
-        self.extra = ""                 # ZIP extra data
+        self.comment = b""              # Comment for each file
+        self.extra = b""                # ZIP extra data
         if sys.platform == 'win32':
             self.create_system = 0          # System which created ZIP archive
         else:
@@ -136,9 +137,9 @@ class ZipInfo (object):
 
     def DataDescriptor(self):
         if self.compress_size > ZIP64_LIMIT or self.file_size > ZIP64_LIMIT:
-            fmt = "<4slQQ"
+            fmt = "<4sLQQ"
         else:
-            fmt = "<4slLL"
+            fmt = "<4sLLL"
         return struct.pack(fmt, stringDataDescriptor, self.CRC, self.compress_size, self.file_size)
 
     def FileHeader(self):
@@ -323,7 +324,7 @@ class ZipStream(object):
             if not buf:
                 break
             file_size = file_size + len(buf)
-            CRC = binascii.crc32(buf, CRC)
+            CRC = binascii.crc32(buf, CRC) & 0xffffffff
             if cmpr:
                 buf = cmpr.compress(buf)
                 compress_size = compress_size + len(buf)
@@ -427,7 +428,7 @@ class ZipStream(object):
                                  0, 0, count, count, pos2 - pos1, pos1, 0)
             data.append( self.update_data_ptr(endrec))
 
-        return ''.join(data)
+        return b''.join(data)
 
 
 if __name__ == "__main__":
